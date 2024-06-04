@@ -1,0 +1,17 @@
+{
+  "module_id": "viam-soleng:opc-ua-client",
+  "visibility": "public",
+  "url": "https://github.com/viam-soleng/opc-ua-client",
+  "description": "OPC UA client module allowing you to read attributes.",
+  "models": [
+    {
+      "api": "rdk:component:sensor",
+      "model": "viam-soleng:opc-ua:opcsensor"
+    }
+  ],
+  "entrypoint": "bin/opcsensor",
+  "build": {
+    "build": "make module",
+    "arch" : ["darwin/arm64", "linux/amd64", "linux/arm64"]
+  }
+}
