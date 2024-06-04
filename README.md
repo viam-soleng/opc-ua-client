@@ -45,25 +45,33 @@ The following attributes are available for `<INSERT API NAMESPACE>:<INSERT API N
 
 | Name    | Type   | Inclusion    | Description |
 | ------- | ------ | ------------ | ----------- |
-| `todo1` | string | **Required** | TODO        |
-| `todo2` | string | Optional     | TODO        |
+| `nodeids` | []string | Optional | List of node ids to be read |
+| `endpoint` | string | **Required** | The opc ua server address and port |
 
 ### Example configuration
 
 ```json
 {
-  <INSERT SAMPLE CONFIGURATION(S)>
+  "nodeids": [
+    "ns=2;i=3",
+    "ns=2;i=2"
+  ],
+  "endpoint": "opc.tcp://0.0.0.0:4840/freeopcua/server/"
 }
 ```
 
 ### Next steps
 
-_Add any additional information you want readers to know and direct them towards what to do next with this module._
-_For example:_
-
-- To test your...
-- To write code against your...
+Let us know any issues / limitations important to you and your project! Simply create an issue and we will get back to you.
+We also welcome pull requests which we will review and consider merging!
 
 ## Troubleshooting
 
-_Add troubleshooting notes here._
+Current Known Limitations:
+- No authentication
+- Only reading of attributes is suppported
+
+## Features Planned
+
+- Write attributes
+- Authentication
