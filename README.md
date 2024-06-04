@@ -24,7 +24,7 @@ Click on the **Components** subtab and click **Create component**.
 Select the `component` type, then select the `opcsensor` model provided by viam-soleng.
 Click **Add module**, then enter a name for your sensor and click **Create**.
 
-On the new component panel, copy and paste the following attribute template into your sensor’s **Attributes** box:
+On the new component panel, copy and paste the following attribute template into your sensor’s **Attributes** box and adjust them according to your environment:
 
 ```json
 {
