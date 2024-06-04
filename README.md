@@ -1,6 +1,6 @@
 # OPC UA Client modular resource
 
-This module implements an OPC UA client which allows you to connect to an OPC UA server and read attributes.
+This module implements an OPC UA client using the Viam sensor api. It allows you to connect to an OPC UA server and read its attributes.
 The module is work in progress and additional features are planned to be implemented.
 As always, please provide feedback and suggestions wherever applicable!
 
@@ -12,14 +12,16 @@ The module doesn't have any specific requirements. If you need support for anoth
 
 To use this module, follow the instructions to [add a module from the Viam Registry](https://docs.viam.com/registry/configure/#add-a-modular-resource-from-the-viam-registry) and select the `viam-soleng:opc-ua:opcsensor` model from the [opc-ua-client module](https://app.viam.com/module/viam-soleng/opc-ua-client).
 
-## Configure your sensor
+If you plan to modify and build it for yourself, look into check out the Makefile and have a look at [Create Viam Modules](https://docs.viam.com/registry/create/).
+
+## Configure your OPC UA sensor
 
 > [!NOTE]
 > Before configuring your sensor you must [create a machine](https://docs.viam.com/manage/fleet/machines/#add-a-new-machine).
 
 Navigate to the **Config** tab of your machine's page in [the Viam app](https://app.viam.com/).
 Click on the **Components** subtab and click **Create component**.
-Select the `<INSERT API NAME>` type, then select the `<INSERT MODEL>` model.
+Select the `component` type, then select the `opcsensor` model provided by viam-soleng.
 Click **Add module**, then enter a name for your sensor and click **Create**.
 
 On the new component panel, copy and paste the following attribute template into your sensor’s **Attributes** box:
