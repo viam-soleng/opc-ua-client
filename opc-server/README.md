@@ -18,3 +18,9 @@ pip install asyncua
 ```
 python opc-server/opcserver.py
 ```
+
+## Run the module locally
+
+```
+./bin/remoteserver opc-ua-sensor opc.tcp://0.0.0.0:4840/freeopcua/server/ "[\"ns=2;i=3\"]"
+```
