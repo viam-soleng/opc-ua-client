@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/gopcua/opcua v0.5.3
-	go.viam.com/rdk v0.28.0
+	go.viam.com/rdk v0.28.1
 	go.viam.com/utils v0.1.79
 )
 
