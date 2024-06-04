@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	Model            = resource.NewModel("felixreichenbach", "opc-ua", "opcsensor")
+	Model            = resource.NewModel("viam-soleng", "opc-ua", "opcsensor")
 	errUnimplemented = errors.New("unimplemented")
 )
 
