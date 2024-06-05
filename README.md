@@ -60,6 +60,21 @@ The following attributes are available for `<INSERT API NAMESPACE>:<INSERT API N
 }
 ```
 
+### Write Attributes
+
+The OPC UA client module allows you to set nodes to certain values by using the following parameters 
+
+```json
+{
+  "write":{
+    "ns=2;i=2":100,
+    "ns=2;i=3":0.1
+  }
+}
+```
+
+The result will provide a list of values where 0 means succesful.
+
 ### Next steps
 
 Let us know any issues / limitations important to you and your project! Simply create an issue and we will get back to you.
