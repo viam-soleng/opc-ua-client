@@ -1,5 +1,4 @@
-// Package customsensor implements a sensor where all methods are unimplemented.
-// It extends the built-in resource subtype sensor and implements methods to handle resource construction and attribute configuration.
+// Package opcsensor implements a sensor which allows reading opc ua nodes through the readings api and write attributes through do_command
 
 package opcsensor
 
@@ -20,8 +19,7 @@ import (
 )
 
 var (
-	Model            = resource.NewModel("viam-soleng", "opc-ua", "opcsensor")
-	errUnimplemented = errors.New("unimplemented")
+	Model = resource.NewModel("viam-soleng", "opc-ua", "opcsensor")
 )
 
 func init() {
@@ -32,15 +30,13 @@ func init() {
 	)
 }
 
-// TODO: Change the Config struct to contain any values that you would like to be able to configure from the attributes field in the component
-// configuration. For more information see https://docs.viam.com/build/configure/#components
+// OPC UA client configuration
 type Config struct {
 	Endpoint string   `json:"endpoint"`
 	NodeIDs  []string `json:"nodeids"`
 }
 
 // Validate validates the config and returns implicit dependencies.
-// TODO: Change the Validate function to validate any config variables.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	// OPC config validation
 	if cfg.Endpoint == "" {
@@ -51,7 +47,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	return []string{}, nil
 }
 
-// Constructor for a custom sensor that creates and returns a customSensor.
+// Constructor for a custom sensor that creates and returns an opcsensor.
 // TODO: update the customSensor struct and the initialization.
 func newOPCSensor(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) (sensor.Sensor, error) {
 	// This takes the generic resource.Config passed down from the parent and converts it to the
@@ -71,8 +67,6 @@ func newOPCSensor(ctx context.Context, deps resource.Dependencies, rawConf resou
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 	}
-
-	// TODO: If your custom component has dependencies, perform any checks you need to on them.
 
 	// The Reconfigure() method changes the values on the customSensor based on the attributes in the component config
 	if err := s.Reconfigure(ctx, deps, rawConf); err != nil {
@@ -121,12 +115,16 @@ func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 	s.opcclient = opcclient
+	if err := s.opcclient.Connect(ctx); err != nil {
+		s.logger.Error(err)
+		return err
+	}
+	s.logger.Debugf("OPC client successfully connected to: ", s.cfg.Endpoint)
 	return nil
 }
 
-// Read sensor values
+// Read and return sensor values
 func (s *opcSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	// TODO: Obtain and return readings.
 	readResponse, err := s.readOPC(ctx)
 	if err != nil {
 		return nil, err
@@ -136,14 +134,50 @@ func (s *opcSensor) Readings(ctx context.Context, extra map[string]interface{}) 
 	for idx, val := range readResponse.Results {
 		result[s.cfg.NodeIDs[idx]] = val.Value.Value()
 	}
-
 	return result, nil
 }
 
-// DoCommand is a place to add additional commands to extend the sensor API. This is optional.
+// DoCommand is used to set opc ua attributes
 func (s *opcSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	s.logger.Error("DoCommand method unimplemented")
-	return nil, errUnimplemented
+	if wvs, ok := cmd["write"]; ok {
+		if nodes, ok := wvs.(map[string]any); ok {
+			nodesToWrite := []*ua.WriteValue{}
+			for k, v := range nodes {
+				// Check NodeID
+				nodeid, err := ua.ParseNodeID(k)
+				if err != nil {
+					s.logger.Errorf("invalid node id: %v", err)
+					return nil, err
+				}
+				// Convert value
+				v, err := ua.NewVariant(v)
+				if err != nil {
+					s.logger.Errorf("invalid value: %v", err)
+					return nil, err
+				}
+
+				nwv := ua.WriteValue{
+					NodeID:      nodeid,
+					AttributeID: ua.AttributeIDValue,
+					Value: &ua.DataValue{
+						EncodingMask: ua.DataValueValue,
+						Value:        v,
+					},
+				}
+				nodesToWrite = append(nodesToWrite, &nwv)
+			}
+			writeRequest := &ua.WriteRequest{
+				NodesToWrite: nodesToWrite,
+			}
+			resp, err := s.opcclient.Write(ctx, writeRequest)
+			if err != nil {
+				return nil, err
+			} else {
+				return map[string]interface{}{"results": resp.Results}, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 // Close closes the underlying generic.
@@ -154,19 +188,12 @@ func (s *opcSensor) Close(ctx context.Context) error {
 }
 
 func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
-
-	if err := s.opcclient.Connect(ctx); err != nil {
-		s.logger.Fatal(err)
-	}
-	defer s.opcclient.Close(ctx)
-	s.logger.Info("OPC client successfully connected to: ", s.cfg.Endpoint)
-
 	var readIDs []*ua.ReadValueID
 
 	for _, nodeID := range s.cfg.NodeIDs {
 		id, err := ua.ParseNodeID(nodeID)
 		if err != nil {
-			s.logger.Fatalf("invalid node id: %v", err)
+			s.logger.Errorf("invalid node id: %v", err)
 			return nil, err
 		}
 		readIDs = append(readIDs, &ua.ReadValueID{NodeID: id})
@@ -210,12 +237,12 @@ func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
 			continue
 
 		default:
-			s.logger.Fatalf("Read failed: %s", err)
+			s.logger.Errorf("Read failed: %s", err)
 		}
 	}
 
 	if resp != nil && resp.Results[0].Status != ua.StatusOK {
-		s.logger.Fatalf("Status not OK: %v", resp.Results[0].Status)
+		s.logger.Errorf("Status not OK: %v", resp.Results[0].Status)
 	}
 
 	// DEBUGGING
@@ -229,5 +256,4 @@ func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
 		s.logger.Infof("Results: %v", string(out))
 	*/
 	return resp, nil
-
 }
