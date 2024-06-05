@@ -19,8 +19,7 @@ import (
 )
 
 var (
-	Model            = resource.NewModel("viam-soleng", "opc-ua", "opcsensor")
-	errUnimplemented = errors.New("unimplemented")
+	Model = resource.NewModel("viam-soleng", "opc-ua", "opcsensor")
 )
 
 func init() {
