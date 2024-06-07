@@ -173,7 +173,11 @@ func (s *opcSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 			if err != nil {
 				return nil, err
 			} else {
-				return map[string]interface{}{"results": resp.Results}, nil
+				result := []any{}
+				for _, code := range resp.Results {
+					result = append(result, ua.StatusCodes[code])
+				}
+				return map[string]interface{}{"results": result}, nil
 			}
 		}
 	}
