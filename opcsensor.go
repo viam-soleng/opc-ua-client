@@ -248,16 +248,5 @@ func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
 	if resp != nil && resp.Results[0].Status != ua.StatusOK {
 		s.logger.Errorf("Status not OK: %v", resp.Results[0].Status)
 	}
-
-	// DEBUGGING
-	/*
-		out, err := json.Marshal(resp)
-		if err != nil {
-			panic(err)
-		}
-
-		//resultString := fmt.Sprintf("%#v", resp)
-		s.logger.Infof("Results: %v", string(out))
-	*/
 	return resp, nil
 }
