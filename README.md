@@ -1,6 +1,6 @@
 # OPC UA Client modular resource
 
-This module implements an OPC UA client using the Viam sensor api. It allows you to connect to an OPC UA server and read its attributes.
+This module implements an OPC UA client using the Viam sensor api. It allows you to connect to an OPC UA server and read/write its attributes.
 The module is work in progress and additional features are planned to be implemented.
 As always, please provide feedback and suggestions wherever applicable!
 
