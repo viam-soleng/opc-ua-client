@@ -2,6 +2,8 @@
 
 A very simplistic OPC Server setup for test and development purposes.
 
+For more information have a look at: [freeopcua.github.io](https://freeopcua.github.io/)
+
 ## Setup and Installation
 
 ```
