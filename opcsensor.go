@@ -92,7 +92,7 @@ type opcSensor struct {
 	opcSubscription *opcua.Subscription
 	notifyChannel   chan *opcua.PublishNotificationData
 	queue           list.List
-	queueEmpty      bool
+	capture         bool
 }
 
 func (s *opcSensor) Name() resource.Name {
@@ -176,18 +176,22 @@ func (s *opcSensor) Readings(ctx context.Context, extra map[string]interface{}) 
 
 	if s.cfg.Subscribe == "data" {
 		if extra[data.FromDMString] != true {
-			// Read most recent values from queue
-			return map[string]interface{}{"value": s.queue.Back()}, nil
-		}
-		if s.queueEmpty {
-			return nil, data.ErrNoCaptureToStore
-		} else {
-			value := s.queue.Front()
-			if s.queue.Len() == 1 {
-				s.queueEmpty = true
-			} else {
-				s.queue.Remove(value)
+			// Read most recent values from queue if not data manager
+			s.logger.Infof("Most recent value: %v", s.queue.Back())
+			if s.queue.Len() >= 1 {
+				return map[string]interface{}{"value": s.queue.Back().Value}, nil
 			}
+			return nil, nil
+		}
+		// For the data manager calls
+		if s.queue.Len() == 0 || !s.capture {
+			return nil, data.ErrNoCaptureToStore
+		}
+		if s.queue.Len() == 1 && s.capture {
+			s.capture = false
+			return map[string]interface{}{"value": s.queue.Front().Value}, nil
+		} else {
+			value := s.queue.Remove(s.queue.Front())
 			return map[string]interface{}{"value": value}, nil
 		}
 
@@ -340,8 +344,8 @@ func (s *opcSensor) monitorData() error {
 			case *ua.DataChangeNotification:
 				for _, item := range x.MonitoredItems {
 					s.queue.PushBack(item.Value.Value.Value())
-					s.queueEmpty = false
-					s.logger.Infof("MonitoredItem with client handle %v = %v", item.ClientHandle, s.queue.Back())
+					s.capture = true
+					s.logger.Infof("MonitoredItem with client handle %v = %v", item.ClientHandle, s.queue.Back().Value)
 				}
 			}
 		}
