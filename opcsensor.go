@@ -46,8 +46,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Endpoint == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "endpoint")
 	}
-
-	// TODO: return implicit dependencies if needed as the first value
 	return []string{}, nil
 }
 

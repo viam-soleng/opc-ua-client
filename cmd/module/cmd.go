@@ -13,8 +13,7 @@ import (
 
 func main() {
 	// NewLoggerFromArgs will create a logging.Logger at "DebugLevel" if
-	// "--log-level=debug" is an argument in os.Args and at "InfoLevel" otherwise.
-	// TODO: Change the name of the logger from customsensor to the name of the module your are creating
+	// "--log-level=debug" the 3rd argument in os.Args and at "InfoLevel" otherwise.
 	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("opcsensor"))
 }
 
@@ -24,8 +23,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 		return err
 	}
 
-	// Adds the preregistered sensor component API to the module for the new model.
-	// TODO: Update the name of your package customsensor
+	// Adds the preregistered sensor component API to the module for the new model
 	err = myModule.AddModelFromRegistry(ctx, sensor.API, opcsensor.Model)
 	if err != nil {
 		return err
