@@ -1,0 +1,80 @@
+{
+  "components": [
+    {
+      "name": "opc-sensor",
+      "namespace": "rdk",
+      "type": "sensor",
+      "model": "viam-soleng:opc-ua:opcsensor",
+      "attributes": {
+        "nodeids": [
+          "ns=2;i=3"
+        ],
+        "subscribe": "data",
+        "endpoint": "opc.tcp://0.0.0.0:4840/freeopcua/server/"
+      },
+      "service_configs": [
+        {
+          "type": "data_manager",
+          "attributes": {
+            "capture_methods": [
+              {
+                "method": "Readings",
+                "capture_frequency_hz": 0.1,
+                "disabled": true,
+                "additional_params": {}
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "data_manager",
+      "namespace": "rdk",
+      "type": "data_manager",
+      "attributes": {
+        "sync_interval_mins": 0.1,
+        "capture_dir": "",
+        "tags": [],
+        "additional_sync_paths": [],
+        "capture_disabled": false,
+        "sync_disabled": false
+      }
+    }
+  ],
+  "modules": [
+    {
+      "type": "local",
+      "name": "opc-ua-client",
+      "executable_path": "/Users/felixreichenbach/Documents/GitHub/opc-ua-client/bin/opcsensor"
+    }
+  ],
+  "agent": {
+    "viam-server": {
+      "pin_version": "",
+      "pin_url": "",
+      "disable_subsystem": false,
+      "release_channel": "stable"
+    },
+    "agent-provisioning": {
+      "disable_subsystem": false,
+      "release_channel": "stable",
+      "pin_version": "",
+      "pin_url": ""
+    },
+    "agent-syscfg": {
+      "pin_version": "",
+      "pin_url": "",
+      "disable_subsystem": false,
+      "release_channel": "stable"
+    },
+    "viam-agent": {
+      "pin_url": "",
+      "disable_subsystem": false,
+      "release_channel": "stable",
+      "pin_version": ""
+    }
+  }
+}
