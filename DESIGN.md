@@ -11,7 +11,7 @@
 ```json
 {
     "endpoint": "opc.tcp://0.0.0.0:4840/freeopcua/server/",
-    "subscribe": "data" | "event" | "poll", // default is poll
+    "subscribe": "data | event | poll", // default is poll
     "nodeids": [
         "ns=2;i=3",
         "ns=2;i=2"
