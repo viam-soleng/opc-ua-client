@@ -52,7 +52,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 // Constructor for a custom sensor that creates and returns an opcsensor.
-// TODO: update the customSensor struct and the initialization.
 func newOPCSensor(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) (sensor.Sensor, error) {
 	// This takes the generic resource.Config passed down from the parent and converts it to the
 	// model-specific (aka "native") Config structure defined above, making it easier to directly access attributes.
@@ -81,7 +80,6 @@ func newOPCSensor(ctx context.Context, deps resource.Dependencies, rawConf resou
 	return s, nil
 }
 
-// TODO: update the opcSensor struct with any fields you require.
 type opcSensor struct {
 	name   resource.Name
 	logger logging.Logger
@@ -265,7 +263,7 @@ func (s *opcSensor) Close(ctx context.Context) error {
 	return nil
 }
 
-// TODO: Rename to readData
+// Read data from OPC UA server directly
 func (s *opcSensor) readData(ctx context.Context) (*ua.ReadResponse, error) {
 	var readIDs []*ua.ReadValueID
 
