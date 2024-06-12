@@ -32,8 +32,9 @@ func init() {
 
 // OPC UA client configuration
 type Config struct {
-	Endpoint string   `json:"endpoint"`
-	NodeIDs  []string `json:"nodeids"`
+	Endpoint  string   `json:"endpoint"`
+	Subscribe string   `json:"subscribe"`
+	NodeIDs   []string `json:"nodeids"`
 }
 
 // Validate validates the config and returns implicit dependencies.
@@ -87,7 +88,9 @@ type opcSensor struct {
 	cancelFunc func()
 
 	// OPC client
-	opcclient *opcua.Client
+	opcclient       *opcua.Client
+	opcSubscription *opcua.Subscription
+	notifyChannel   chan *opcua.PublishNotificationData
 }
 
 func (s *opcSensor) Name() resource.Name {
@@ -96,6 +99,9 @@ func (s *opcSensor) Name() resource.Name {
 
 // Reconfigures the model. Most models can be reconfigured in place without needing to rebuild. If you need to instead create a new instance of the sensor, throw a NewMustBuildError.
 func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+
+	// TODO: MutEx
+
 	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		s.logger.Warn("Error reconfiguring module with ", err)
@@ -106,6 +112,9 @@ func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	// Update nodeIDs
 	s.cfg.NodeIDs = cfg.NodeIDs
+	// Update subscription
+	s.cfg.Subscribe = cfg.Subscribe
+	s.logger.Infof("Subscribe: %s", s.cfg.Subscribe)
 
 	// OPC client init
 	// examples: https://github.com/gopcua/opcua/blob/main/examples/read/read.go
@@ -119,15 +128,56 @@ func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		s.logger.Error(err)
 		return err
 	}
-	s.logger.Debugf("OPC client successfully connected to: ", s.cfg.Endpoint)
+	s.logger.Infof("OPC client successfully connected to: ", s.cfg.Endpoint)
+
+	// Create OPC UA subscription if set in config
+	if s.cfg.Subscribe == "data" {
+		//interval := 100 * time.Millisecond // event publishing frequency
+		params := &opcua.SubscriptionParameters{}
+		s.notifyChannel = make(chan *opcua.PublishNotificationData)
+		s.opcSubscription, err = s.opcclient.Subscribe(ctx, params, s.notifyChannel)
+		if err != nil {
+			return err
+		}
+		s.logger.Infof("OPC subscription created: %v", s.opcSubscription.SubscriptionID)
+
+		// Parse configured node ids and create a list of items to be monitored
+		var miCreateRequests []*ua.MonitoredItemCreateRequest
+		for _, nodeID := range s.cfg.NodeIDs {
+			id, err := ua.ParseNodeID(nodeID)
+			if err != nil {
+				s.logger.Errorf("invalid node id: %v", err)
+				return err
+			}
+			miCreateRequests = append(miCreateRequests, valueRequest(id))
+		}
+		// Add subscriptions
+		res, err := s.opcSubscription.Monitor(ctx, ua.TimestampsToReturnBoth, miCreateRequests...)
+		if err != nil || res.Results[0].StatusCode != ua.StatusOK {
+			s.logger.Error(err)
+		}
+
+		// TODO: Build go routine
+		go s.monitorData()
+	}
+
 	return nil
 }
 
 // Read and return sensor values
 func (s *opcSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readResponse, err := s.readOPC(ctx)
-	if err != nil {
-		return nil, err
+
+	var readResponse *ua.ReadResponse
+	var err error
+
+	if s.cfg.Subscribe == "data" || s.cfg.Subscribe == "event" {
+		// TODO: Read from buffer when subscribed
+
+	} else {
+		readResponse, err = s.readOPC(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	result := map[string]interface{}{}
@@ -187,10 +237,12 @@ func (s *opcSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 // Close closes the underlying generic.
 func (s *opcSensor) Close(ctx context.Context) error {
 	s.cancelFunc()
+	s.opcSubscription.Cancel(ctx)
 	s.opcclient.Close(ctx)
 	return nil
 }
 
+// TODO: Rename to readData
 func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
 	var readIDs []*ua.ReadValueID
 
@@ -249,4 +301,35 @@ func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
 		s.logger.Errorf("Status not OK: %v", resp.Results[0].Status)
 	}
 	return resp, nil
+}
+
+// Listen for data changes
+func (s *opcSensor) monitorData() error {
+	// read from subscription's notification channel until ctx is cancelled
+	s.logger.Info("Go routine started")
+	for {
+		select {
+		case <-s.cancelCtx.Done():
+			s.logger.Info("Go routine ended")
+			return nil
+		case res := <-s.notifyChannel:
+			if res.Error != nil {
+				s.logger.Error(res.Error)
+				continue
+			}
+			switch x := res.Value.(type) {
+			case *ua.DataChangeNotification:
+				for _, item := range x.MonitoredItems {
+					data := item.Value.Value.Value()
+					s.logger.Infof("MonitoredItem with client handle %v = %v", item.ClientHandle, data)
+				}
+			}
+		}
+	}
+}
+
+// Creates monitored item request from node ids
+func valueRequest(nodeID *ua.NodeID) *ua.MonitoredItemCreateRequest {
+	handle := uint32(42)
+	return opcua.NewMonitoredItemCreateRequestWithDefaults(nodeID, ua.AttributeIDValue, handle)
 }

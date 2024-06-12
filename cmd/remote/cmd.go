@@ -49,12 +49,14 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 				API:   sensor.API,
 				Model: opcsensor.Model,
 				Attributes: rdkutils.AttributeMap{
-					"endpoint": os.Args[2],
-					"nodeids":  nodeIDs,
+					"endpoint":  os.Args[2],
+					"nodeids":   nodeIDs,
+					"subscribe": "data",
 				},
 				ConvertedAttributes: &opcsensor.Config{
-					Endpoint: os.Args[2],
-					NodeIDs:  nodeIDs,
+					Endpoint:  os.Args[2],
+					NodeIDs:   nodeIDs,
+					Subscribe: "data",
 				},
 			},
 		},
