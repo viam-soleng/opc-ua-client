@@ -3,12 +3,15 @@
 package opcsensor
 
 import (
+	"container/list"
 	"context"
 	"errors"
 	"io"
+	"sync"
 	"time"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 
@@ -83,6 +86,7 @@ type opcSensor struct {
 	name   resource.Name
 	logger logging.Logger
 	cfg    *Config
+	mu     sync.Mutex
 
 	cancelCtx  context.Context
 	cancelFunc func()
@@ -91,6 +95,8 @@ type opcSensor struct {
 	opcclient       *opcua.Client
 	opcSubscription *opcua.Subscription
 	notifyChannel   chan *opcua.PublishNotificationData
+	queue           list.List
+	queueEmpty      bool
 }
 
 func (s *opcSensor) Name() resource.Name {
@@ -100,7 +106,8 @@ func (s *opcSensor) Name() resource.Name {
 // Reconfigures the model. Most models can be reconfigured in place without needing to rebuild. If you need to instead create a new instance of the sensor, throw a NewMustBuildError.
 func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 
-	// TODO: MutEx
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -109,12 +116,13 @@ func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	s.name = conf.ResourceName()
-
+	s.logger.Infof("name: %s", s.name)
 	// Update nodeIDs
 	s.cfg.NodeIDs = cfg.NodeIDs
+	s.logger.Infof("nodeids: %v", s.cfg.NodeIDs)
 	// Update subscription
 	s.cfg.Subscribe = cfg.Subscribe
-	s.logger.Infof("Subscribe: %s", s.cfg.Subscribe)
+	s.logger.Infof("subscribe: %s", s.cfg.Subscribe)
 
 	// OPC client init
 	// examples: https://github.com/gopcua/opcua/blob/main/examples/read/read.go
@@ -128,7 +136,7 @@ func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		s.logger.Error(err)
 		return err
 	}
-	s.logger.Infof("OPC client successfully connected to: ", s.cfg.Endpoint)
+	s.logger.Infof("OPC client successfully connected to: %s", s.cfg.Endpoint)
 
 	// Create OPC UA subscription if set in config
 	if s.cfg.Subscribe == "data" {
@@ -157,7 +165,7 @@ func (s *opcSensor) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			s.logger.Error(err)
 		}
 
-		// TODO: Build go routine
+		// Start monitoring nodeids for data changes
 		go s.monitorData()
 	}
 
@@ -170,11 +178,26 @@ func (s *opcSensor) Readings(ctx context.Context, extra map[string]interface{}) 
 	var readResponse *ua.ReadResponse
 	var err error
 
-	if s.cfg.Subscribe == "data" || s.cfg.Subscribe == "event" {
-		// TODO: Read from buffer when subscribed
+	if s.cfg.Subscribe == "data" {
+		if extra[data.FromDMString] != true {
+			// Read most recent values from queue
+			return map[string]interface{}{"value": s.queue.Back()}, nil
+		}
+		if s.queueEmpty {
+			return nil, data.ErrNoCaptureToStore
+		} else {
+			value := s.queue.Front()
+			if s.queue.Len() == 1 {
+				s.queueEmpty = true
+			} else {
+				s.queue.Remove(value)
+			}
+			return map[string]interface{}{"value": value}, nil
+		}
 
 	} else {
-		readResponse, err = s.readOPC(ctx)
+		// Request values directly from OPC server
+		readResponse, err = s.readData(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -243,7 +266,7 @@ func (s *opcSensor) Close(ctx context.Context) error {
 }
 
 // TODO: Rename to readData
-func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
+func (s *opcSensor) readData(ctx context.Context) (*ua.ReadResponse, error) {
 	var readIDs []*ua.ReadValueID
 
 	for _, nodeID := range s.cfg.NodeIDs {
@@ -306,11 +329,11 @@ func (s *opcSensor) readOPC(ctx context.Context) (*ua.ReadResponse, error) {
 // Listen for data changes
 func (s *opcSensor) monitorData() error {
 	// read from subscription's notification channel until ctx is cancelled
-	s.logger.Info("Go routine started")
+	s.logger.Infof("Go routine started")
 	for {
 		select {
 		case <-s.cancelCtx.Done():
-			s.logger.Info("Go routine ended")
+			s.logger.Infof("Go routine ended")
 			return nil
 		case res := <-s.notifyChannel:
 			if res.Error != nil {
@@ -320,8 +343,9 @@ func (s *opcSensor) monitorData() error {
 			switch x := res.Value.(type) {
 			case *ua.DataChangeNotification:
 				for _, item := range x.MonitoredItems {
-					data := item.Value.Value.Value()
-					s.logger.Infof("MonitoredItem with client handle %v = %v", item.ClientHandle, data)
+					s.queue.PushBack(item.Value.Value.Value())
+					s.queueEmpty = false
+					s.logger.Infof("MonitoredItem with client handle %v = %v", item.ClientHandle, s.queue.Back())
 				}
 			}
 		}

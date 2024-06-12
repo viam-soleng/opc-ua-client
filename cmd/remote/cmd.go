@@ -23,11 +23,13 @@ import (
 
 func main() {
 	// NewLoggerFromArgs will create a logging.Logger at "DebugLevel" if
-	// "--log-level=debug" is an argument in os.Args and at "InfoLevel" otherwise.
+	// "--log-level=debug" is the 3rd argument in os.Args and at "InfoLevel" otherwise.
 	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("testsensor"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (err error) {
+
+	logger.Infof("os.ARgs: %v", os.Args)
 
 	netconfig := config.NetworkConfig{}
 	netconfig.BindAddress = "0.0.0.0:8083"
@@ -37,8 +39,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 	}
 
 	var nodeIDs []string
-	json.Unmarshal([]byte(os.Args[3]), &nodeIDs)
-	logger.Infof("nodeids: %v", nodeIDs)
+	json.Unmarshal([]byte(os.Args[4]), &nodeIDs)
 
 	// Update the Attributes and ConvertedAttributes with the attributes your modular resource should receive
 	conf := &config.Config{
@@ -49,12 +50,12 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 				API:   sensor.API,
 				Model: opcsensor.Model,
 				Attributes: rdkutils.AttributeMap{
-					"endpoint":  os.Args[2],
+					"endpoint":  os.Args[3],
 					"nodeids":   nodeIDs,
 					"subscribe": "data",
 				},
 				ConvertedAttributes: &opcsensor.Config{
-					Endpoint:  os.Args[2],
+					Endpoint:  os.Args[3],
 					NodeIDs:   nodeIDs,
 					Subscribe: "data",
 				},
